@@ -17,6 +17,11 @@ mod media_state;
     reason = "wired up to the daemon bridge in a later M3 slice"
 )]
 mod model;
+#[allow(
+    dead_code,
+    reason = "wired up to the daemon bridge in a later M3 slice"
+)]
+mod state;
 mod window;
 
 const APP_ID: &str = "me.spaceinbox.tragus";
