@@ -10,6 +10,7 @@
 //! It takes byte slices in and gives typed events out, and vice versa. Keeping
 //! it transport-free makes it trivial to fuzz and unit-test.
 
+pub mod att;
 pub mod battery;
 pub mod control_command;
 pub mod ear_detection;
