@@ -23,15 +23,24 @@ use adw::prelude::*;
 use gtk::glib;
 use std::cell::Cell;
 use std::rc::Rc;
+use tragus_bluetooth::att_loop::AttCommand;
 use tragus_bluetooth::command_loop::DaemonCommand;
 use tragus_protocol::control_command::{
     ClickHoldAction, ControlCommand, ControlIdentifier, EnabledDisabled, ListeningMode,
 };
+use tragus_protocol::transparency::{ChannelSettings, EqBands, TransparencySettings};
 
 /// Channel into the daemon. Cloned per click handler.
 pub type CommandSender = async_channel::Sender<DaemonCommand>;
+/// Channel into the ATT side of the daemon.
+pub type AttCommandSender = async_channel::Sender<AttCommand>;
 
-pub fn build_ui(app: &adw::Application, state: &AirPodsState, commands: CommandSender) {
+pub fn build_ui(
+    app: &adw::Application,
+    state: &AirPodsState,
+    commands: CommandSender,
+    att_commands: AttCommandSender,
+) {
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("Tragus")
@@ -66,7 +75,10 @@ pub fn build_ui(app: &adw::Application, state: &AirPodsState, commands: CommandS
         .build();
 
     stack.add_named(&disconnected_view(), Some("disconnected"));
-    stack.add_named(&connected_view(state, commands), Some("connected"));
+    stack.add_named(
+        &connected_view(state, commands, att_commands),
+        Some("connected"),
+    );
     stack.set_visible_child_name("disconnected");
 
     state
@@ -100,7 +112,11 @@ fn disconnected_view() -> adw::StatusPage {
         .build()
 }
 
-fn connected_view(state: &AirPodsState, commands: CommandSender) -> gtk::Widget {
+fn connected_view(
+    state: &AirPodsState,
+    commands: CommandSender,
+    att_commands: AttCommandSender,
+) -> gtk::Widget {
     let column = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .spacing(24)
@@ -114,6 +130,7 @@ fn connected_view(state: &AirPodsState, commands: CommandSender) -> gtk::Widget 
     column.append(&noise_control_group(state, commands.clone()));
     column.append(&long_press_group(commands.clone()));
     column.append(&accessibility_group(commands));
+    column.append(&transparency_group(att_commands));
 
     let clamp = adw::Clamp::builder()
         .maximum_size(500)
@@ -124,6 +141,52 @@ fn connected_view(state: &AirPodsState, commands: CommandSender) -> gtk::Widget 
         .child(&clamp)
         .build();
     scroll.upcast()
+}
+
+fn transparency_group(att_commands: AttCommandSender) -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::builder()
+        .title("Transparency")
+        .description("8-band EQ + balance customisation lands in the next slice")
+        .build();
+
+    let row = adw::ActionRow::builder()
+        .title("Reset to defaults")
+        .subtitle("Sends a flat-EQ TransparencySettings to handle 0x0018")
+        .build();
+
+    let button = gtk::Button::builder()
+        .label("Reset")
+        .valign(gtk::Align::Center)
+        .build();
+    button.connect_clicked(move |_| {
+        let cmd = AttCommand::WriteTransparency(default_transparency());
+        let att_commands = att_commands.clone();
+        glib::spawn_future_local(async move {
+            if let Err(e) = att_commands.send(cmd).await {
+                tracing::warn!("dropping transparency reset: {e}");
+            }
+        });
+    });
+    row.add_suffix(&button);
+    row.set_activatable_widget(Some(&button));
+    group.add(&row);
+    group
+}
+
+fn default_transparency() -> TransparencySettings {
+    let flat = ChannelSettings {
+        eq: EqBands { bands: [0.0; 8] },
+        amplification: 0.0,
+        tone: 0.0,
+        conversation_boost: 0.0,
+        ambient_noise_reduction: 0.0,
+    };
+    TransparencySettings {
+        enabled: true,
+        left: flat,
+        right: flat,
+        own_voice_amplification: None,
+    }
 }
 
 fn accessibility_group(commands: CommandSender) -> adw::PreferencesGroup {
