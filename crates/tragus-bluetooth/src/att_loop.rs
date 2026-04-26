@@ -31,6 +31,7 @@ use crate::att_session::{read_att_pdu, write_att_pdu};
 use std::cell::Cell;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tragus_protocol::att::AttPdu;
+use tragus_protocol::hearing_aid_settings::{self, HearingAidSettings};
 use tragus_protocol::transparency::{self, TransparencySettings};
 
 #[derive(Debug, Clone)]
@@ -39,21 +40,30 @@ pub enum AttCommand {
     ReadTransparency,
     /// Write new transparency settings.
     WriteTransparency(TransparencySettings),
+    /// Read the current hearing-aid settings.
+    ReadHearingAid,
+    /// Write new hearing-aid settings.
+    WriteHearingAid(HearingAidSettings),
 }
 
 #[derive(Debug, Clone)]
 pub enum AttEvent {
     /// Result of a `ReadTransparency` round trip.
     TransparencyRead(TransparencySettings),
-    /// Notification fired by the AirPods when settings change on-device
-    /// (e.g. via the iPhone or another connected host).
+    /// Notification fired by the AirPods when transparency settings
+    /// change on-device (e.g. via the iPhone or another connected host).
     TransparencyChanged(TransparencySettings),
+    /// Result of a `ReadHearingAid` round trip.
+    HearingAidRead(HearingAidSettings),
+    /// Notification fired when hearing-aid settings change.
+    HearingAidChanged(HearingAidSettings),
 }
 
 #[derive(Debug, Clone, Copy)]
 enum PendingRead {
     None,
     Transparency,
+    HearingAid,
 }
 
 pub async fn run_att_loop<S>(
@@ -86,6 +96,22 @@ where
                         },
                     ).await?;
                 }
+                Ok(AttCommand::ReadHearingAid) => {
+                    pending.set(PendingRead::HearingAid);
+                    write_att_pdu(
+                        &mut writer,
+                        &AttPdu::ReadRequest { handle: hearing_aid_settings::HANDLE },
+                    ).await?;
+                }
+                Ok(AttCommand::WriteHearingAid(settings)) => {
+                    write_att_pdu(
+                        &mut writer,
+                        &AttPdu::WriteRequest {
+                            handle: hearing_aid_settings::HANDLE,
+                            value: settings.encode(),
+                        },
+                    ).await?;
+                }
                 Err(_) => return Ok(()),
             },
             pdu = read_att_pdu(&mut reader) => match pdu? {
@@ -94,6 +120,9 @@ where
                         PendingRead::Transparency => TransparencySettings::parse(&value)
                             .ok()
                             .map(AttEvent::TransparencyRead),
+                        PendingRead::HearingAid => HearingAidSettings::parse(&value)
+                            .ok()
+                            .map(AttEvent::HearingAidRead),
                         PendingRead::None => {
                             tracing::debug!(
                                 "ATT ReadResponse with no pending request, ignoring"
@@ -110,6 +139,13 @@ where
                 AttPdu::Notification { handle, value } if handle == transparency::HANDLE => {
                     if let Ok(s) = TransparencySettings::parse(&value)
                         && events.send(AttEvent::TransparencyChanged(s)).await.is_err()
+                    {
+                        return Ok(());
+                    }
+                }
+                AttPdu::Notification { handle, value } if handle == hearing_aid_settings::HANDLE => {
+                    if let Ok(s) = HearingAidSettings::parse(&value)
+                        && events.send(AttEvent::HearingAidChanged(s)).await.is_err()
                     {
                         return Ok(());
                     }

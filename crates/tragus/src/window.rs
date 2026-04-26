@@ -29,6 +29,7 @@ use tragus_protocol::channel::ChannelSettings;
 use tragus_protocol::control_command::{
     ClickHoldAction, ControlCommand, ControlIdentifier, EnabledDisabled, ListeningMode,
 };
+use tragus_protocol::hearing_aid_settings::HearingAidSettings;
 use tragus_protocol::transparency::TransparencySettings;
 
 /// Channel into the daemon. Cloned per click handler.
@@ -130,8 +131,9 @@ fn connected_view(
     column.append(&battery_group(state));
     column.append(&noise_control_group(state, commands.clone()));
     column.append(&long_press_group(commands.clone()));
-    column.append(&accessibility_group(commands));
-    column.append(&transparency_group(att_commands));
+    column.append(&accessibility_group(commands.clone()));
+    column.append(&transparency_group(att_commands.clone()));
+    column.append(&hearing_aid_group(commands, att_commands));
 
     let clamp = adw::Clamp::builder()
         .maximum_size(500)
@@ -180,6 +182,68 @@ fn default_transparency() -> TransparencySettings {
         left: ChannelSettings::flat(),
         right: ChannelSettings::flat(),
         own_voice_amplification: None,
+    }
+}
+
+fn hearing_aid_group(
+    commands: CommandSender,
+    att_commands: AttCommandSender,
+) -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::builder()
+        .title("Hearing Aid")
+        .description("Requires AirPods Pro 2 with the Apple-VendorID DeviceID workaround in /etc/bluetooth/main.conf")
+        .build();
+
+    let toggle = adw::SwitchRow::builder().title("Enable").build();
+    toggle.connect_active_notify(move |row| {
+        let v = if row.is_active() {
+            EnabledDisabled::Enabled
+        } else {
+            EnabledDisabled::Disabled
+        };
+        // 0x2C carries (enrolled, enabled) — pair them for the toggle.
+        let cmd = ControlCommand {
+            identifier: ControlIdentifier::HearingAid,
+            data: [v as u8, v as u8, 0, 0],
+        };
+        let commands = commands.clone();
+        glib::spawn_future_local(async move {
+            if let Err(e) = commands.send(DaemonCommand::SendControlCommand(cmd)).await {
+                tracing::warn!("dropping hearing-aid toggle: {e}");
+            }
+        });
+    });
+    group.add(&toggle);
+
+    let reset_row = adw::ActionRow::builder()
+        .title("Reset audiogram to flat")
+        .subtitle("Sends an all-zero HearingAidSettings to handle 0x002A")
+        .build();
+    let reset_button = gtk::Button::builder()
+        .label("Reset")
+        .valign(gtk::Align::Center)
+        .build();
+    reset_button.connect_clicked(move |_| {
+        let cmd = AttCommand::WriteHearingAid(default_hearing_aid());
+        let att_commands = att_commands.clone();
+        glib::spawn_future_local(async move {
+            if let Err(e) = att_commands.send(cmd).await {
+                tracing::warn!("dropping hearing-aid reset: {e}");
+            }
+        });
+    });
+    reset_row.add_suffix(&reset_button);
+    reset_row.set_activatable_widget(Some(&reset_button));
+    group.add(&reset_row);
+
+    group
+}
+
+fn default_hearing_aid() -> HearingAidSettings {
+    HearingAidSettings {
+        left: ChannelSettings::flat(),
+        right: ChannelSettings::flat(),
+        own_voice_amplification: 0.0,
     }
 }
 
