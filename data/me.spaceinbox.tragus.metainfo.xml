@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>me.spaceinbox.tragus</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Tragus</name>
+  <summary>Manage AirPods on Linux</summary>
+
+  <description>
+    <p>
+      Tragus is a native GNOME application that brings AirPods features to Linux:
+      battery levels, ANC mode switching, ear-detection driven media pause/play,
+      hearing aid, customise transparency, and more.
+    </p>
+    <p>
+      Tragus is an independent project and is not affiliated with, endorsed by,
+      or sponsored by Apple Inc. AirPods is a trademark of Apple Inc.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">me.spaceinbox.tragus.desktop</launchable>
+
+  <provides>
+    <binary>tragus</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/makoni/tragus</url>
+  <url type="bugtracker">https://github.com/makoni/tragus/issues</url>
+  <url type="vcs-browser">https://github.com/makoni/tragus</url>
+
+  <developer id="me.spaceinbox">
+    <name>Tragus contributors</name>
+  </developer>
+
+  <content_rating type="oars-1.1" />
+
+  <categories>
+    <category>Audio</category>
+    <category>AudioVideo</category>
+    <category>Settings</category>
+  </categories>
+
+  <keywords>
+    <keyword>AirPods</keyword>
+    <keyword>Bluetooth</keyword>
+    <keyword>Audio</keyword>
+    <keyword>Headphones</keyword>
+  </keywords>
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </recommends>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <releases>
+    <release version="0.1.0" date="2026-04-27" type="development">
+      <description>
+        <p>Initial development snapshot. End-to-end protocol stack
+           (AAP + ATT), live battery, ANC switching, MPRIS pause-on-out,
+           rename, long-press customisation, accessibility toggles,
+           hearing-aid enable, transparency reset.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Tragus
+GenericName=AirPods Manager
+Comment=Manage AirPods on Linux
+Exec=tragus
+Icon=me.spaceinbox.tragus
+Type=Application
+Categories=Audio;AudioVideo;Settings;
+Keywords=AirPods;Bluetooth;Audio;Headphones;Earphones;
+StartupNotify=true
+StartupWMClass=me.spaceinbox.tragus
