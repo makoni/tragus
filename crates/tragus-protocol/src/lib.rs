@@ -17,6 +17,7 @@ pub mod error;
 pub mod feature_flags;
 pub mod frame;
 pub mod notifications;
+pub mod rename;
 
 pub use error::ProtocolError;
 pub use frame::{Frame, OwnedFrame};

@@ -15,11 +15,13 @@ use crate::TransportError;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tragus_protocol::control_command::{self, ControlCommand, ListeningMode};
 use tragus_protocol::frame::Frame;
+use tragus_protocol::rename;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DaemonCommand {
     SetListeningMode(ListeningMode),
     SendControlCommand(ControlCommand),
+    Rename(String),
 }
 
 impl DaemonCommand {
@@ -32,6 +34,7 @@ impl DaemonCommand {
             Self::SendControlCommand(cmd) => {
                 Frame::encode(control_command::OPCODE, &cmd.encode_payload())
             }
+            Self::Rename(name) => Frame::encode(rename::OPCODE, &rename::encode_rename(name)),
         }
     }
 }
@@ -96,6 +99,22 @@ mod tests {
         ))
         .await
         .unwrap();
+        drop(tx);
+
+        run_command_loop(&mut mock, &rx).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn rename_writes_expected_frame() {
+        // 04 00 04 00 1A 00 01 04 00 'P' 'o' 'd' 's'
+        let mut mock = Builder::new()
+            .write(&[
+                0x04, 0x00, 0x04, 0x00, 0x1A, 0x00, 0x01, 0x04, 0x00, b'P', b'o', b'd', b's',
+            ])
+            .build();
+        let (tx, rx) = async_channel::bounded(1);
+
+        tx.send(DaemonCommand::Rename("Pods".into())).await.unwrap();
         drop(tx);
 
         run_command_loop(&mut mock, &rx).await.unwrap();
