@@ -31,6 +31,7 @@ fn main() -> glib::ExitCode {
     app.connect_activate(move |app| {
         let state = state::AirPodsState::new();
         let (events_tx, events_rx) = async_channel::bounded(64);
+        let (commands_tx, commands_rx) = async_channel::bounded(8);
 
         bridge::attach_event_stream(state.clone(), events_rx);
 
@@ -38,14 +39,22 @@ fn main() -> glib::ExitCode {
             tracing::info!("starting in --fake mode (no Bluetooth)");
             state.set_connected(true);
             fake::spawn_fake_source(events_tx);
+            // Drain commands so the UI never blocks on a full channel.
+            // In a real run M3.G hands commands_rx to the daemon.
+            glib::spawn_future_local(async move {
+                while let Ok(cmd) = commands_rx.recv().await {
+                    tracing::debug!(?cmd, "swallowed in --fake mode");
+                }
+            });
         } else {
             // Real bluer integration lands in M3.G. Until then a non-fake
             // launch shows the disconnected StatusPage.
             tracing::warn!("no daemon wired up yet; relaunch with --fake for a live UI demo");
             drop(events_tx);
+            drop(commands_rx);
         }
 
-        window::build_ui(app, &state);
+        window::build_ui(app, &state, commands_tx);
     });
     app.run()
 }
