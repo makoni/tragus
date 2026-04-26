@@ -18,6 +18,7 @@ pub mod ear_detection;
 pub mod error;
 pub mod feature_flags;
 pub mod frame;
+pub mod head_tracking;
 pub mod hearing_aid_settings;
 pub mod notifications;
 pub mod rename;
