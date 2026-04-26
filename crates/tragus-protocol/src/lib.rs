@@ -14,6 +14,7 @@ pub mod battery;
 pub mod control_command;
 pub mod ear_detection;
 pub mod error;
+pub mod feature_flags;
 pub mod frame;
 
 pub use error::ProtocolError;
