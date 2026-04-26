@@ -21,8 +21,10 @@
 use crate::state::AirPodsState;
 use adw::prelude::*;
 use gtk::glib;
+use std::cell::Cell;
+use std::rc::Rc;
 use tragus_bluetooth::command_loop::DaemonCommand;
-use tragus_protocol::control_command::ListeningMode;
+use tragus_protocol::control_command::{ClickHoldAction, ControlCommand, ListeningMode};
 
 /// Channel into the daemon. Cloned per click handler.
 pub type CommandSender = async_channel::Sender<DaemonCommand>;
@@ -109,10 +111,80 @@ fn connected_view(state: &AirPodsState, commands: CommandSender) -> gtk::Widget 
         .build();
 
     column.append(&battery_group(state));
-    column.append(&noise_control_group(state, commands));
+    column.append(&noise_control_group(state, commands.clone()));
+    column.append(&long_press_group(commands));
 
     clamp.set_child(Some(&column));
     clamp.upcast()
+}
+
+fn long_press_group(commands: CommandSender) -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::builder()
+        .title("Long Press")
+        .description("Action when you press and hold the stem")
+        .build();
+
+    // Shared state: 0 = NoiseControl, 1 = Siri. Default to NoiseControl
+    // until the AirPods echo back their current setting (notification
+    // routing for ClickHoldMode lands in a later slice).
+    let left_idx = Rc::new(Cell::new(0u32));
+    let right_idx = Rc::new(Cell::new(0u32));
+
+    group.add(&long_press_row(
+        "Left",
+        Rc::clone(&left_idx),
+        Rc::clone(&right_idx),
+        true,
+        commands.clone(),
+    ));
+    group.add(&long_press_row(
+        "Right",
+        Rc::clone(&right_idx),
+        Rc::clone(&left_idx),
+        false,
+        commands,
+    ));
+    group
+}
+
+fn long_press_row(
+    title: &str,
+    own_idx: Rc<Cell<u32>>,
+    other_idx: Rc<Cell<u32>>,
+    own_is_left: bool,
+    commands: CommandSender,
+) -> adw::ComboRow {
+    let row = adw::ComboRow::builder().title(title).build();
+    let model = gtk::StringList::new(&["Noise Control", "Siri"]);
+    row.set_model(Some(&model));
+    row.set_selected(own_idx.get());
+
+    row.connect_selected_notify(move |row| {
+        let selected = row.selected();
+        own_idx.set(selected);
+        let (left, right) = if own_is_left {
+            (own_idx.get(), other_idx.get())
+        } else {
+            (other_idx.get(), own_idx.get())
+        };
+        let cmd =
+            ControlCommand::set_click_hold_mode(index_to_action(right), index_to_action(left));
+        let commands = commands.clone();
+        glib::spawn_future_local(async move {
+            if let Err(e) = commands.send(DaemonCommand::SendControlCommand(cmd)).await {
+                tracing::warn!("dropping long-press command: {e}");
+            }
+        });
+    });
+    row
+}
+
+fn index_to_action(idx: u32) -> ClickHoldAction {
+    if idx == 1 {
+        ClickHoldAction::Siri
+    } else {
+        ClickHoldAction::NoiseControl
+    }
 }
 
 fn battery_group(state: &AirPodsState) -> adw::PreferencesGroup {

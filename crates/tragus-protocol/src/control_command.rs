@@ -220,6 +220,28 @@ pub enum EnabledDisabled {
     Disabled = 0x02,
 }
 
+/// Action assigned to a long stem press. Per AAP spec, the set Apple
+/// exposes is just two: cycle noise-control modes, or summon Siri.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClickHoldAction {
+    NoiseControl = 0x01,
+    Siri = 0x05,
+}
+
+impl ClickHoldAction {
+    pub fn from_byte(b: u8) -> Result<Self, ProtocolError> {
+        match b {
+            0x01 => Ok(Self::NoiseControl),
+            0x05 => Ok(Self::Siri),
+            other => Err(ProtocolError::InvalidValue {
+                what: "click-hold action",
+                byte: other,
+            }),
+        }
+    }
+}
+
 impl EnabledDisabled {
     pub fn from_byte(b: u8) -> Result<Self, ProtocolError> {
         match b {
@@ -276,6 +298,15 @@ impl ControlCommand {
         Self {
             identifier,
             data: [value as u8, 0, 0, 0],
+        }
+    }
+
+    /// Build a click-hold customisation command. Per AAP spec, byte 0
+    /// is the right bud and byte 1 is the left.
+    pub fn set_click_hold_mode(right: ClickHoldAction, left: ClickHoldAction) -> Self {
+        Self {
+            identifier: ControlIdentifier::ClickHoldMode,
+            data: [right as u8, left as u8, 0, 0],
         }
     }
 }
@@ -366,6 +397,29 @@ mod tests {
             Err(ProtocolError::InvalidValue {
                 what: "listening mode",
                 byte: 0x05,
+            }),
+        );
+    }
+
+    #[test]
+    fn click_hold_mode_builder_per_bud() {
+        // Right = NoiseControl (0x01), Left = Siri (0x05). Spec puts
+        // right in data[0], left in data[1].
+        let cmd = ControlCommand::set_click_hold_mode(
+            ClickHoldAction::NoiseControl,
+            ClickHoldAction::Siri,
+        );
+        assert_eq!(cmd.identifier, ControlIdentifier::ClickHoldMode);
+        assert_eq!(cmd.encode_payload(), [0x16, 0x01, 0x05, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn click_hold_action_invalid_byte() {
+        assert_eq!(
+            ClickHoldAction::from_byte(0x00),
+            Err(ProtocolError::InvalidValue {
+                what: "click-hold action",
+                byte: 0x00,
             }),
         );
     }
