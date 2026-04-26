@@ -31,6 +31,24 @@ pub struct Frame<'a> {
     pub payload: &'a [u8],
 }
 
+/// Owned counterpart of [`Frame`]. Use this when a frame needs to outlive
+/// the byte buffer it was parsed from — e.g. when crossing async boundaries
+/// or being put on a channel.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnedFrame {
+    pub opcode: u8,
+    pub payload: Vec<u8>,
+}
+
+impl<'a> From<Frame<'a>> for OwnedFrame {
+    fn from(borrowed: Frame<'a>) -> Self {
+        Self {
+            opcode: borrowed.opcode,
+            payload: borrowed.payload.to_vec(),
+        }
+    }
+}
+
 impl<'a> Frame<'a> {
     /// Decode a byte slice from the wire.
     pub fn parse(bytes: &'a [u8]) -> Result<Self, ProtocolError> {

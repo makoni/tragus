@@ -19,7 +19,7 @@ pub mod frame;
 pub mod notifications;
 
 pub use error::ProtocolError;
-pub use frame::Frame;
+pub use frame::{Frame, OwnedFrame};
 
 /// L2CAP PSM that AirPods listen on for AAP traffic.
 pub const AAP_PSM: u16 = 0x1001;

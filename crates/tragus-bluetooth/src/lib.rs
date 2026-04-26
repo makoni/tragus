@@ -9,6 +9,7 @@
 //! Wraps `bluer` and the L2CAP socket so the rest of the app sees a typed
 //! async stream of protocol events instead of raw bytes.
 
+pub mod framing;
 pub mod handshake;
 
 #[derive(Debug, thiserror::Error)]
@@ -17,4 +18,8 @@ pub enum TransportError {
     Bluer(#[from] bluer::Error),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("protocol error: {0}")]
+    Protocol(#[from] tragus_protocol::ProtocolError),
+    #[error("connection closed by peer")]
+    ConnectionClosed,
 }
