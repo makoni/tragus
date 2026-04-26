@@ -13,3 +13,7 @@ bluer = { version = "0.17.4", features = ["bluetoothd", "l2cap"] }
 tokio = { version = "1.52.1", features = ["rt", "macros", "sync", "io-util"] }
 tracing = "0.1.44"
 thiserror = "2.0.18"
+
+[dev-dependencies]
+tokio = { version = "1.52.1", features = ["macros", "rt"] }
+tokio-test = "0.4.5"
