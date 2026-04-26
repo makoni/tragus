@@ -1,0 +1,68 @@
+# Flatpak manifest for local development builds.
+#
+# Build:
+#   flatpak-builder --force-clean build-flatpak flatpak/me.spaceinbox.tragus.yaml
+#   flatpak-builder --user --install --force-clean build-flatpak flatpak/me.spaceinbox.tragus.yaml
+#
+# For Flathub submission this needs:
+#   1. Cargo sources frozen via flatpak-cargo-generator.py → cargo-sources.json
+#   2. type: archive sources with sha256 instead of `type: dir`
+#   3. --share=network removed from finish-args
+#
+# Bluetooth L2CAP from inside the Flatpak sandbox requires --device=all
+# (raw access to /dev) because the sandbox doesn't pass through
+# AF_BLUETOOTH sockets by default. This is a hard constraint of
+# Flatpak's hardware policy, not anything Tragus can fix.
+
+app-id: me.spaceinbox.tragus
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: tragus
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/tragus/cargo
+
+finish-args:
+  # GUI
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+
+  # Bluetooth: BlueZ over D-Bus + raw socket for L2CAP. The latter
+  # requires --device=all on Flatpak — there's no narrower permission
+  # for AF_BLUETOOTH today.
+  - --system-talk-name=org.bluez
+  - --device=all
+
+  # Sleep / wake notifications via logind
+  - --system-talk-name=org.freedesktop.login1
+
+  # MPRIS — pause/play whatever's playing on ear-detection events
+  - --talk-name=org.mpris.MediaPlayer2.*
+
+  # Network only during build (cargo fetches deps); stripped before
+  # Flathub submission and replaced with frozen sources.
+  - --share=network
+
+modules:
+  - name: tragus
+    buildsystem: simple
+    build-commands:
+      - cargo build --release --offline || cargo build --release
+      - install -Dm755 target/release/tragus /app/bin/tragus
+      - install -Dm644 data/me.spaceinbox.tragus.desktop
+        /app/share/applications/me.spaceinbox.tragus.desktop
+      - install -Dm644 data/me.spaceinbox.tragus.metainfo.xml
+        /app/share/metainfo/me.spaceinbox.tragus.metainfo.xml
+      - install -Dm644 data/icons/hicolor/scalable/apps/me.spaceinbox.tragus.svg
+        /app/share/icons/hicolor/scalable/apps/me.spaceinbox.tragus.svg
+      - install -Dm644 data/icons/hicolor/symbolic/apps/me.spaceinbox.tragus-symbolic.svg
+        /app/share/icons/hicolor/symbolic/apps/me.spaceinbox.tragus-symbolic.svg
+    sources:
+      - type: dir
+        path: ..
