@@ -10,13 +10,12 @@
 //! It takes byte slices in and gives typed events out, and vice versa. Keeping
 //! it transport-free makes it trivial to fuzz and unit-test.
 
-#[derive(Debug, thiserror::Error)]
-pub enum ProtocolError {
-    #[error("packet too short: expected at least {expected} bytes, got {got}")]
-    TooShort { expected: usize, got: usize },
-    #[error("unknown opcode: 0x{0:02x}")]
-    UnknownOpcode(u8),
-}
+pub mod battery;
+pub mod error;
+pub mod frame;
+
+pub use error::ProtocolError;
+pub use frame::Frame;
 
 /// L2CAP PSM that AirPods listen on for AAP traffic.
 pub const AAP_PSM: u16 = 0x1001;
