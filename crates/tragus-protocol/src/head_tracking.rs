@@ -72,6 +72,27 @@ fn read_i16(payload: &[u8], offset: usize) -> i16 {
     i16::from_le_bytes([payload[offset], payload[offset + 1]])
 }
 
+/// Compute pitch / yaw in degrees from the current sample relative to a
+/// neutral-pose baseline.
+///
+/// The calling layer is responsible for averaging the first ~10 samples
+/// into a baseline before feeding either real-time samples or a gesture
+/// detector through here.
+///
+/// Formulas reproduced from LibrePods Android `HeadOrientation.kt`:
+///
+/// ```text
+/// pitch = (o2_norm + o3_norm) / 2 / 32000 * 180   (degrees)
+/// yaw   = (o2_norm - o3_norm) / 2 / 32000 * 180
+/// ```
+pub fn pitch_yaw_degrees(sample: &ImuSample, baseline: &ImuSample) -> (f32, f32) {
+    let o2_norm = f32::from(sample.o2) - f32::from(baseline.o2);
+    let o3_norm = f32::from(sample.o3) - f32::from(baseline.o3);
+    let pitch = (o2_norm + o3_norm) / 2.0 / 32_000.0 * 180.0;
+    let yaw = (o2_norm - o3_norm) / 2.0 / 32_000.0 * 180.0;
+    (pitch, yaw)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::error::ProtocolError;
@@ -106,5 +127,58 @@ mod tests {
             ImuSample::parse(&payload),
             Err(ProtocolError::TooShort { .. }),
         ));
+    }
+
+    #[test]
+    fn pitch_yaw_at_baseline_is_zero() {
+        let baseline = ImuSample {
+            o1: 100,
+            o2: 200,
+            o3: 300,
+            horizontal_accel: 0,
+            vertical_accel: 0,
+        };
+        let (pitch, yaw) = crate::head_tracking::pitch_yaw_degrees(&baseline, &baseline);
+        assert_eq!(pitch, 0.0);
+        assert_eq!(yaw, 0.0);
+    }
+
+    #[test]
+    fn pitch_full_swing_when_axes_in_phase() {
+        let baseline = ImuSample {
+            o1: 0,
+            o2: 0,
+            o3: 0,
+            horizontal_accel: 0,
+            vertical_accel: 0,
+        };
+        let sample = ImuSample {
+            o2: 32_000,
+            o3: 32_000,
+            ..baseline
+        };
+        let (pitch, yaw) = crate::head_tracking::pitch_yaw_degrees(&sample, &baseline);
+        // (32000 + 32000) / 2 / 32000 * 180 == 180
+        assert!((pitch - 180.0).abs() < 1e-3);
+        assert_eq!(yaw, 0.0);
+    }
+
+    #[test]
+    fn yaw_full_swing_when_axes_out_of_phase() {
+        let baseline = ImuSample {
+            o1: 0,
+            o2: 0,
+            o3: 0,
+            horizontal_accel: 0,
+            vertical_accel: 0,
+        };
+        let sample = ImuSample {
+            o2: 32_000,
+            o3: -32_000,
+            ..baseline
+        };
+        let (pitch, yaw) = crate::head_tracking::pitch_yaw_degrees(&sample, &baseline);
+        assert_eq!(pitch, 0.0);
+        assert!((yaw - 180.0).abs() < 1e-3);
     }
 }
