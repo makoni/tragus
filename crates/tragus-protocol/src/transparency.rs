@@ -6,10 +6,7 @@
 
 //! Customize-Transparency payload codec (GATT handle `0x0018`).
 //!
-//! Wire format on the GATT side: 100 IEEE-754 little-endian f32s, with
-//! an optional 101st float (own-voice amplification) on firmware
-//! versions that support it. Layout from the LibrePods Android
-//! `Transparency.kt`:
+//! Wire layout from the LibrePods Android `Transparency.kt`:
 //!
 //! ```text
 //! offset  field                                bytes  type
@@ -27,7 +24,12 @@
 //! 96      right ambient noise reduction        4      f32
 //! [100]   own-voice amplification (optional)   4      f32
 //! ```
+//!
+//! Per-ear sub-layout (48 bytes) is shared with Hearing-Aid via
+//! [`crate::channel`].
 
+pub use crate::channel::{ChannelSettings as Channel, EqBands};
+use crate::channel::{ChannelSettings, encode_channel, parse_channel, read_f32, write_f32};
 use crate::error::ProtocolError;
 
 /// GATT characteristic handle for Customize-Transparency.
@@ -35,22 +37,6 @@ pub const HANDLE: u16 = 0x0018;
 
 const MIN_PAYLOAD_LEN: usize = 100;
 const FULL_PAYLOAD_LEN: usize = 104;
-const CHANNEL_LEN: usize = 48;
-const EQ_BANDS: usize = 8;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct EqBands {
-    pub bands: [f32; EQ_BANDS],
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ChannelSettings {
-    pub eq: EqBands,
-    pub amplification: f32,
-    pub tone: f32,
-    pub conversation_boost: f32,
-    pub ambient_noise_reduction: f32,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TransparencySettings {
@@ -99,53 +85,9 @@ impl TransparencySettings {
     }
 }
 
-fn read_f32(bytes: &[u8], offset: usize) -> Result<f32, ProtocolError> {
-    if bytes.len() < offset + 4 {
-        return Err(ProtocolError::TooShort {
-            expected: offset + 4,
-            got: bytes.len(),
-        });
-    }
-    Ok(f32::from_le_bytes([
-        bytes[offset],
-        bytes[offset + 1],
-        bytes[offset + 2],
-        bytes[offset + 3],
-    ]))
-}
-
-fn write_f32(buf: &mut Vec<u8>, v: f32) {
-    buf.extend_from_slice(&v.to_le_bytes());
-}
-
-fn parse_channel(bytes: &[u8]) -> Result<ChannelSettings, ProtocolError> {
-    debug_assert!(bytes.len() >= CHANNEL_LEN);
-    let mut bands = [0.0f32; EQ_BANDS];
-    for (i, slot) in bands.iter_mut().enumerate() {
-        *slot = read_f32(bytes, i * 4)?;
-    }
-    Ok(ChannelSettings {
-        eq: EqBands { bands },
-        amplification: read_f32(bytes, 32)?,
-        tone: read_f32(bytes, 36)?,
-        conversation_boost: read_f32(bytes, 40)?,
-        ambient_noise_reduction: read_f32(bytes, 44)?,
-    })
-}
-
-fn encode_channel(buf: &mut Vec<u8>, ch: &ChannelSettings) {
-    for v in ch.eq.bands {
-        write_f32(buf, v);
-    }
-    write_f32(buf, ch.amplification);
-    write_f32(buf, ch.tone);
-    write_f32(buf, ch.conversation_boost);
-    write_f32(buf, ch.ambient_noise_reduction);
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::transparency::{ChannelSettings, EqBands, HANDLE, TransparencySettings};
+    use super::*;
 
     #[test]
     fn att_handle_matches_spec() {
@@ -198,8 +140,6 @@ mod tests {
 
     #[test]
     fn enabled_flag_thresholds_at_half() {
-        // 0.4 → disabled, 0.6 → enabled (the AirPods firmware uses
-        // 0.5 as the cutoff for the leading "enabled" float).
         let mut bytes = sample().encode();
         bytes[..4].copy_from_slice(&0.4_f32.to_le_bytes());
         assert!(!TransparencySettings::parse(&bytes).unwrap().enabled);

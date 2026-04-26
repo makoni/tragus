@@ -12,11 +12,13 @@
 
 pub mod att;
 pub mod battery;
+pub mod channel;
 pub mod control_command;
 pub mod ear_detection;
 pub mod error;
 pub mod feature_flags;
 pub mod frame;
+pub mod hearing_aid_settings;
 pub mod notifications;
 pub mod rename;
 pub mod transparency;

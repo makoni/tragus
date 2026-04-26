@@ -25,10 +25,11 @@ use std::cell::Cell;
 use std::rc::Rc;
 use tragus_bluetooth::att_loop::AttCommand;
 use tragus_bluetooth::command_loop::DaemonCommand;
+use tragus_protocol::channel::ChannelSettings;
 use tragus_protocol::control_command::{
     ClickHoldAction, ControlCommand, ControlIdentifier, EnabledDisabled, ListeningMode,
 };
-use tragus_protocol::transparency::{ChannelSettings, EqBands, TransparencySettings};
+use tragus_protocol::transparency::TransparencySettings;
 
 /// Channel into the daemon. Cloned per click handler.
 pub type CommandSender = async_channel::Sender<DaemonCommand>;
@@ -174,17 +175,10 @@ fn transparency_group(att_commands: AttCommandSender) -> adw::PreferencesGroup {
 }
 
 fn default_transparency() -> TransparencySettings {
-    let flat = ChannelSettings {
-        eq: EqBands { bands: [0.0; 8] },
-        amplification: 0.0,
-        tone: 0.0,
-        conversation_boost: 0.0,
-        ambient_noise_reduction: 0.0,
-    };
     TransparencySettings {
         enabled: true,
-        left: flat,
-        right: flat,
+        left: ChannelSettings::flat(),
+        right: ChannelSettings::flat(),
         own_voice_amplification: None,
     }
 }
