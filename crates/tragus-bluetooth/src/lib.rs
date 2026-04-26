@@ -12,6 +12,7 @@
 pub mod event;
 pub mod framing;
 pub mod handshake;
+pub mod read_loop;
 
 #[derive(Debug, thiserror::Error)]
 pub enum TransportError {
