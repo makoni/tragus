@@ -82,6 +82,13 @@ pub fn apply_event(model: &mut AirPodsModel, event: &DaemonEvent) {
             }
             // Other identifiers will land here as their UI screens arrive.
         }
+        DaemonEvent::HeadTracking(_) => {
+            // Head tracking samples are high-frequency (~25 Hz). Storing
+            // them in the model would force a property-notify per sample
+            // and constant UI redraws; instead the bridge layer feeds
+            // them straight into the gesture detector / visualisation
+            // widget that subscribes separately.
+        }
     }
 }
 

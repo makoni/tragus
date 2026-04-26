@@ -17,12 +17,14 @@ use tragus_protocol::battery::{self, BatteryNotification};
 use tragus_protocol::control_command::{self, ControlCommand};
 use tragus_protocol::ear_detection::{self, EarDetectionNotification};
 use tragus_protocol::frame::OwnedFrame;
+use tragus_protocol::head_tracking::{self, ImuSample};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DaemonEvent {
     Battery(BatteryNotification),
     EarDetection(EarDetectionNotification),
     ControlCommand(ControlCommand),
+    HeadTracking(ImuSample),
 }
 
 impl DaemonEvent {
@@ -44,6 +46,9 @@ impl DaemonEvent {
             }
             control_command::OPCODE => {
                 ControlCommand::parse(&frame.payload).map(|c| Some(Self::ControlCommand(c)))
+            }
+            head_tracking::OPCODE => {
+                ImuSample::parse(&frame.payload).map(|s| Some(Self::HeadTracking(s)))
             }
             _ => Ok(None),
         }
@@ -108,6 +113,27 @@ mod tests {
             ListeningMode::from_byte(cmd.data[0]).unwrap(),
             ListeningMode::NoiseCancellation,
         );
+    }
+
+    #[test]
+    fn head_tracking_frame_dispatches_to_head_tracking_event() {
+        // 49 bytes payload, with o1=256, o2=-1, o3=32000 at offsets 37/39/41,
+        // h_accel=100, v_accel=-200 at offsets 45/47.
+        let mut payload = vec![0u8; 49];
+        payload[37..39].copy_from_slice(&256_i16.to_le_bytes());
+        payload[39..41].copy_from_slice(&(-1_i16).to_le_bytes());
+        payload[41..43].copy_from_slice(&32_000_i16.to_le_bytes());
+        payload[45..47].copy_from_slice(&100_i16.to_le_bytes());
+        payload[47..49].copy_from_slice(&(-200_i16).to_le_bytes());
+
+        let f = frame(0x17, &payload);
+        let DaemonEvent::HeadTracking(sample) = DaemonEvent::from_frame(&f).unwrap().unwrap()
+        else {
+            panic!("expected HeadTracking event");
+        };
+        assert_eq!(sample.o1, 256);
+        assert_eq!(sample.o2, -1);
+        assert_eq!(sample.o3, 32_000);
     }
 
     #[test]

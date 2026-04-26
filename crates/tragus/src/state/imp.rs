@@ -127,6 +127,11 @@ impl AirPodsState {
             DaemonEvent::ControlCommand(_) => {
                 obj.notify_listening_mode();
             }
+            DaemonEvent::HeadTracking(_) => {
+                // Not stored on the AirPodsState — see model.rs for the
+                // rationale. Future: emit a 'head-tracking-sample' signal
+                // for visualisation widgets to subscribe to.
+            }
         }
     }
 }
