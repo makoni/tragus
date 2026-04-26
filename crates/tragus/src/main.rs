@@ -7,6 +7,8 @@
 use adw::prelude::*;
 use gtk::glib;
 
+#[allow(dead_code, reason = "wired up to the daemon bridge in a later M3 slice")]
+mod media_state;
 mod window;
 
 const APP_ID: &str = "me.spaceinbox.tragus";
