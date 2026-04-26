@@ -10,6 +10,7 @@
 //! async stream of protocol events instead of raw bytes.
 
 pub mod command_loop;
+pub mod daemon;
 pub mod event;
 pub mod framing;
 pub mod handshake;
