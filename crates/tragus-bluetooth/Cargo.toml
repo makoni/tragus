@@ -9,7 +9,7 @@ description = "BlueZ + L2CAP transport for the Tragus AirPods client"
 
 [dependencies]
 tragus-protocol = { path = "../tragus-protocol" }
-bluer = { version = "0.17", features = ["bluetoothd", "l2cap"] }
-tokio = { version = "1", features = ["rt", "macros", "sync", "io-util"] }
-tracing = "0.1"
-thiserror = "2"
+bluer = { version = "0.17.4", features = ["bluetoothd", "l2cap"] }
+tokio = { version = "1.52.1", features = ["rt", "macros", "sync", "io-util"] }
+tracing = "0.1.44"
+thiserror = "2.0.18"

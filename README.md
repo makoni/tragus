@@ -59,7 +59,7 @@ Then:
 cargo run -p tragus
 ```
 
-Requires Rust 1.85+ (edition 2024).
+Requires Rust 1.95+ (edition 2024).
 
 ## License
 
