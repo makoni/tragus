@@ -16,6 +16,7 @@ pub mod ear_detection;
 pub mod error;
 pub mod feature_flags;
 pub mod frame;
+pub mod notifications;
 
 pub use error::ProtocolError;
 pub use frame::Frame;
@@ -24,11 +25,9 @@ pub use frame::Frame;
 pub const AAP_PSM: u16 = 0x1001;
 
 /// First packet to send after the L2CAP socket is up. Without it, AirPods
-/// stay silent.
+/// stay silent. The handshake uses a different prefix from a regular AAP
+/// frame, so it lives here as a top-level constant rather than under any
+/// opcode module.
 pub const HANDSHAKE: &[u8] = &[
     0x00, 0x00, 0x04, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
-
-/// Subscribes to battery / ear-detection / ANC mode notifications.
-pub const REQUEST_NOTIFICATIONS: &[u8] =
-    &[0x04, 0x00, 0x04, 0x00, 0x0F, 0x00, 0xFF, 0xFF, 0xFE, 0xFF];
