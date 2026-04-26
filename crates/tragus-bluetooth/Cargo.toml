@@ -1,0 +1,15 @@
+[package]
+name = "tragus-bluetooth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "BlueZ + L2CAP transport for the Tragus AirPods client"
+
+[dependencies]
+tragus-protocol = { path = "../tragus-protocol" }
+bluer = { version = "0.17", features = ["bluetoothd", "l2cap"] }
+tokio = { version = "1", features = ["rt", "macros", "sync", "io-util"] }
+tracing = "0.1"
+thiserror = "2"

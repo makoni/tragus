@@ -1,0 +1,11 @@
+[package]
+name = "tragus-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AAP protocol parsers and codec for AirPods"
+
+[dependencies]
+thiserror = "2"

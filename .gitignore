@@ -1,0 +1,29 @@
+# Rust / Cargo
+/target
+**/*.rs.bk
+*.profraw
+
+# Build artifacts
+/build
+/release
+/dist
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flatpak
+.flatpak-builder/
+flatpak/repo/
+flatpak/build/
+
+# Local secrets / overrides
+/.env
+/local.toml

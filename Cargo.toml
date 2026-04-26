@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/tragus-protocol",
+    "crates/tragus-bluetooth",
+    "crates/tragus",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/makoni/tragus"
+homepage = "https://github.com/makoni/tragus"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
