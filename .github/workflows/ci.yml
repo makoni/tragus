@@ -17,14 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Only system deps the non-UI crates need. The `tragus` UI crate is
-      # excluded from CI until M3 introduces real UI code; at that point
-      # we'll switch to a Flatpak-based job to get a recent libadwaita
-      # (the Ubuntu runner ships an older one than our v1_8 feature gate).
+      # Ubuntu-latest ships GTK 4.14 / libadwaita 1.5 — our feature gates
+      # match. Once we need newer Adwaita widgets we'll move CI to a
+      # Flatpak-based job with a current GNOME runtime.
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libdbus-1-dev pkg-config
+          sudo apt-get install -y \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            libdbus-1-dev \
+            pkg-config
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -37,7 +40,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: cargo clippy
-        run: cargo clippy -p tragus-protocol -p tragus-bluetooth --all-targets
+        run: cargo clippy --workspace --all-targets
 
       - name: cargo test
-        run: cargo test -p tragus-protocol -p tragus-bluetooth
+        run: cargo test --workspace
