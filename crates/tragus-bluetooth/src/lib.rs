@@ -27,4 +27,6 @@ pub enum TransportError {
     Protocol(#[from] tragus_protocol::ProtocolError),
     #[error("connection closed by peer")]
     ConnectionClosed,
+    #[error("no paired AirPods found on the default adapter")]
+    NoAirPodsFound,
 }

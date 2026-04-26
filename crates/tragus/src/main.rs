@@ -8,6 +8,7 @@ use adw::prelude::*;
 use gtk::glib;
 
 mod bridge;
+mod daemon_thread;
 mod fake;
 #[allow(dead_code, reason = "wired into the bridge once MPRIS lands in M3.F")]
 mod media_state;
@@ -47,11 +48,16 @@ fn main() -> glib::ExitCode {
                 }
             });
         } else {
-            // Real bluer integration lands in M3.G. Until then a non-fake
-            // launch shows the disconnected StatusPage.
-            tracing::warn!("no daemon wired up yet; relaunch with --fake for a live UI demo");
-            drop(events_tx);
-            drop(commands_rx);
+            tracing::info!("starting bluer daemon thread");
+            let (connected_tx, connected_rx) = async_channel::bounded(4);
+            daemon_thread::spawn(events_tx, commands_rx, connected_tx);
+
+            let state_for_connected = state.clone();
+            glib::spawn_future_local(async move {
+                while let Ok(c) = connected_rx.recv().await {
+                    state_for_connected.set_connected(c);
+                }
+            });
         }
 
         window::build_ui(app, &state, commands_tx);

@@ -25,7 +25,7 @@
 
 use crate::TransportError;
 use bluer::l2cap::{SocketAddr, Stream};
-use bluer::{Adapter, Address, AddressType, Device};
+use bluer::{Adapter, Address, AddressType, Device, Session};
 use tragus_protocol::AAP_PSM;
 
 /// True if the device name looks like AirPods. Heuristic by design —
@@ -58,6 +58,20 @@ pub async fn find_paired_airpods(adapter: &Adapter) -> Result<Vec<Device>, Trans
 pub async fn open_aap_socket(addr: Address) -> Result<Stream, TransportError> {
     let target = SocketAddr::new(addr, AddressType::BrEdr, AAP_PSM);
     Ok(Stream::connect(target).await?)
+}
+
+/// One-shot helper that wires the whole sequence together: open a
+/// `bluer::Session`, pick the default adapter, find the first paired
+/// AirPods, and open an AAP socket to it. Used by the application's
+/// background daemon thread.
+pub async fn connect_first_paired_airpods() -> Result<(Address, Stream), TransportError> {
+    let session = Session::new().await?;
+    let adapter = session.default_adapter().await?;
+    let pairs = find_paired_airpods(&adapter).await?;
+    let device = pairs.first().ok_or(TransportError::NoAirPodsFound)?;
+    let address = device.address();
+    let socket = open_aap_socket(address).await?;
+    Ok((address, socket))
 }
 
 #[cfg(test)]
