@@ -9,6 +9,7 @@
 //! Wraps `bluer` and the L2CAP socket so the rest of the app sees a typed
 //! async stream of protocol events instead of raw bytes.
 
+pub mod event;
 pub mod framing;
 pub mod handshake;
 
