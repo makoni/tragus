@@ -14,6 +14,7 @@ pub mod att;
 pub mod battery;
 pub mod channel;
 pub mod control_command;
+pub mod crypto;
 pub mod ear_detection;
 pub mod error;
 pub mod feature_flags;
