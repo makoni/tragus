@@ -33,6 +33,10 @@
 use tragus_protocol::ear_detection::EarStatus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(
+    dead_code,
+    reason = "PauseWhenBothRemoved / Disabled get UI selectors in M3.I"
+)]
 pub enum EarDetectionPolicy {
     PauseWhenOneRemoved,
     PauseWhenBothRemoved,

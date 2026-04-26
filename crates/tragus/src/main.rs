@@ -10,9 +10,9 @@ use gtk::glib;
 mod bridge;
 mod daemon_thread;
 mod fake;
-#[allow(dead_code, reason = "wired into the bridge once MPRIS lands in M3.F")]
 mod media_state;
 mod model;
+mod mpris;
 mod state;
 mod window;
 
