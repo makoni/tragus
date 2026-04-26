@@ -26,6 +26,11 @@ pub use frame::{Frame, OwnedFrame};
 /// L2CAP PSM that AirPods listen on for AAP traffic.
 pub const AAP_PSM: u16 = 0x1001;
 
+/// Bluetooth-standard L2CAP PSM for ATT (Attribute Protocol). Used for
+/// the GATT-side characteristics — transparency, hearing aid,
+/// loud-sound reduction.
+pub const ATT_PSM: u16 = 0x001F;
+
 /// First packet to send after the L2CAP socket is up. Without it, AirPods
 /// stay silent. The handshake uses a different prefix from a regular AAP
 /// frame, so it lives here as a top-level constant rather than under any

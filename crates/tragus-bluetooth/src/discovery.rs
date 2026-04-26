@@ -26,7 +26,7 @@
 use crate::TransportError;
 use bluer::l2cap::{SocketAddr, Stream};
 use bluer::{Adapter, Address, AddressType, Device, Session};
-use tragus_protocol::AAP_PSM;
+use tragus_protocol::{AAP_PSM, ATT_PSM};
 
 /// True if the device name looks like AirPods. Heuristic by design —
 /// AirPods are renameable, but the default name shape (`"AirPods"`,
@@ -57,6 +57,13 @@ pub async fn find_paired_airpods(adapter: &Adapter) -> Result<Vec<Device>, Trans
 /// Open an L2CAP stream to the AAP PSM on the given AirPods.
 pub async fn open_aap_socket(addr: Address) -> Result<Stream, TransportError> {
     let target = SocketAddr::new(addr, AddressType::BrEdr, AAP_PSM);
+    Ok(Stream::connect(target).await?)
+}
+
+/// Open the ATT-side L2CAP stream for the GATT characteristics
+/// (transparency, hearing aid, loud-sound reduction).
+pub async fn open_att_socket(addr: Address) -> Result<Stream, TransportError> {
+    let target = SocketAddr::new(addr, AddressType::BrEdr, ATT_PSM);
     Ok(Stream::connect(target).await?)
 }
 
