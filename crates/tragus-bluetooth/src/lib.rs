@@ -11,6 +11,7 @@
 
 pub mod command_loop;
 pub mod daemon;
+pub mod discovery;
 pub mod event;
 pub mod framing;
 pub mod handshake;
