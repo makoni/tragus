@@ -24,7 +24,9 @@ use gtk::glib;
 use std::cell::Cell;
 use std::rc::Rc;
 use tragus_bluetooth::command_loop::DaemonCommand;
-use tragus_protocol::control_command::{ClickHoldAction, ControlCommand, ListeningMode};
+use tragus_protocol::control_command::{
+    ClickHoldAction, ControlCommand, ControlIdentifier, EnabledDisabled, ListeningMode,
+};
 
 /// Channel into the daemon. Cloned per click handler.
 pub type CommandSender = async_channel::Sender<DaemonCommand>;
@@ -99,8 +101,6 @@ fn disconnected_view() -> adw::StatusPage {
 }
 
 fn connected_view(state: &AirPodsState, commands: CommandSender) -> gtk::Widget {
-    let clamp = adw::Clamp::builder().maximum_size(500).build();
-
     let column = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .spacing(24)
@@ -112,10 +112,84 @@ fn connected_view(state: &AirPodsState, commands: CommandSender) -> gtk::Widget 
 
     column.append(&battery_group(state));
     column.append(&noise_control_group(state, commands.clone()));
-    column.append(&long_press_group(commands));
+    column.append(&long_press_group(commands.clone()));
+    column.append(&accessibility_group(commands));
 
-    clamp.set_child(Some(&column));
-    clamp.upcast()
+    let clamp = adw::Clamp::builder()
+        .maximum_size(500)
+        .child(&column)
+        .build();
+    let scroll = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .child(&clamp)
+        .build();
+    scroll.upcast()
+}
+
+fn accessibility_group(commands: CommandSender) -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::builder()
+        .title("Accessibility")
+        .description("Toggles match the AirPods' on-device accessibility settings")
+        .build();
+    group.add(&toggle_row(
+        "Off listening mode",
+        ControlIdentifier::AllowOffOption,
+        commands.clone(),
+    ));
+    group.add(&toggle_row(
+        "Adaptive Volume",
+        ControlIdentifier::AdaptiveVolumeConfig,
+        commands.clone(),
+    ));
+    group.add(&toggle_row(
+        "Software Mute",
+        ControlIdentifier::SoftwareMuteConfig,
+        commands.clone(),
+    ));
+    group.add(&toggle_row(
+        "Conversation Detection",
+        ControlIdentifier::ConversationDetectConfig,
+        commands.clone(),
+    ));
+    group.add(&toggle_row(
+        "Sleep Detection",
+        ControlIdentifier::SleepDetectionConfig,
+        commands.clone(),
+    ));
+    group.add(&toggle_row(
+        "In-Case Tone",
+        ControlIdentifier::InCaseToneConfig,
+        commands.clone(),
+    ));
+    group.add(&toggle_row(
+        "Voice Trigger (Siri)",
+        ControlIdentifier::VoiceTrigger,
+        commands,
+    ));
+    group
+}
+
+fn toggle_row(
+    title: &str,
+    identifier: ControlIdentifier,
+    commands: CommandSender,
+) -> adw::SwitchRow {
+    let row = adw::SwitchRow::builder().title(title).build();
+    row.connect_active_notify(move |row| {
+        let value = if row.is_active() {
+            EnabledDisabled::Enabled
+        } else {
+            EnabledDisabled::Disabled
+        };
+        let cmd = ControlCommand::set_toggle(identifier, value);
+        let commands = commands.clone();
+        glib::spawn_future_local(async move {
+            if let Err(e) = commands.send(DaemonCommand::SendControlCommand(cmd)).await {
+                tracing::warn!("dropping toggle command: {e}");
+            }
+        });
+    });
+    row
 }
 
 fn long_press_group(commands: CommandSender) -> adw::PreferencesGroup {
