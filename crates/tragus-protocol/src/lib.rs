@@ -11,6 +11,8 @@
 //! it transport-free makes it trivial to fuzz and unit-test.
 
 pub mod battery;
+pub mod control_command;
+pub mod ear_detection;
 pub mod error;
 pub mod frame;
 

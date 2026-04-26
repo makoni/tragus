@@ -25,6 +25,12 @@ pub enum ProtocolError {
     #[error("unknown battery status: 0x{0:02x}")]
     UnknownBatteryStatus(u8),
 
+    #[error("unknown ear-detection status: 0x{0:02x}")]
+    UnknownEarStatus(u8),
+
+    #[error("invalid {what} value: 0x{byte:02x}")]
+    InvalidValue { what: &'static str, byte: u8 },
+
     #[error("unexpected byte at offset {offset}: expected 0x{expected:02x}, got 0x{got:02x}")]
     UnexpectedByte {
         offset: usize,
