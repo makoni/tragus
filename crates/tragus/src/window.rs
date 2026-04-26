@@ -37,6 +37,26 @@ pub fn build_ui(app: &adw::Application, state: &AirPodsState, commands: CommandS
 
     let header = adw::HeaderBar::new();
 
+    let rename_button = gtk::Button::builder()
+        .icon_name("document-edit-symbolic")
+        .tooltip_text("Rename AirPods")
+        .build();
+    {
+        let commands = commands.clone();
+        let window_weak = window.downgrade();
+        rename_button.connect_clicked(move |_| {
+            if let Some(window) = window_weak.upgrade() {
+                show_rename_dialog(&window, commands.clone());
+            }
+        });
+    }
+    header.pack_end(&rename_button);
+
+    state
+        .bind_property("connected", &rename_button, "sensitive")
+        .sync_create()
+        .build();
+
     let stack = gtk::Stack::builder()
         .transition_type(gtk::StackTransitionType::Crossfade)
         .build();
@@ -203,6 +223,44 @@ fn noise_control_group(state: &AirPodsState, commands: CommandSender) -> adw::Pr
     row.add_suffix(&buttons);
     group.add(&row);
     group
+}
+
+fn show_rename_dialog(parent: &adw::ApplicationWindow, commands: CommandSender) {
+    let dialog = adw::MessageDialog::builder()
+        .transient_for(parent)
+        .modal(true)
+        .heading("Rename AirPods")
+        .body("New name will appear in your Bluetooth settings.")
+        .default_response("rename")
+        .close_response("cancel")
+        .build();
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("rename", "Rename");
+    dialog.set_response_appearance("rename", adw::ResponseAppearance::Suggested);
+
+    let entry = gtk::Entry::builder()
+        .placeholder_text("e.g. \"My AirPods Pro\"")
+        .activates_default(true)
+        .build();
+    dialog.set_extra_child(Some(&entry));
+
+    let entry_for_response = entry.clone();
+    dialog.connect_response(None, move |dialog, response| {
+        if response == "rename" {
+            let name = entry_for_response.text().to_string();
+            if !name.is_empty() {
+                let commands = commands.clone();
+                glib::spawn_future_local(async move {
+                    if let Err(e) = commands.send(DaemonCommand::Rename(name)).await {
+                        tracing::warn!("dropping Rename, daemon channel closed: {e}");
+                    }
+                });
+            }
+        }
+        dialog.close();
+    });
+
+    dialog.present();
 }
 
 fn anc_button(
