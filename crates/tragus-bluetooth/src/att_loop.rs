@@ -81,6 +81,7 @@ where
         tokio::select! {
             cmd = commands.recv() => match cmd {
                 Ok(AttCommand::ReadTransparency) => {
+                    tracing::debug!("↓ AttCommand::ReadTransparency");
                     pending.set(PendingRead::Transparency);
                     write_att_pdu(
                         &mut writer,
@@ -88,6 +89,7 @@ where
                     ).await?;
                 }
                 Ok(AttCommand::WriteTransparency(settings)) => {
+                    tracing::debug!(?settings, "↓ AttCommand::WriteTransparency");
                     write_att_pdu(
                         &mut writer,
                         &AttPdu::WriteRequest {
@@ -97,6 +99,7 @@ where
                     ).await?;
                 }
                 Ok(AttCommand::ReadHearingAid) => {
+                    tracing::debug!("↓ AttCommand::ReadHearingAid");
                     pending.set(PendingRead::HearingAid);
                     write_att_pdu(
                         &mut writer,
@@ -104,6 +107,7 @@ where
                     ).await?;
                 }
                 Ok(AttCommand::WriteHearingAid(settings)) => {
+                    tracing::debug!(?settings, "↓ AttCommand::WriteHearingAid");
                     write_att_pdu(
                         &mut writer,
                         &AttPdu::WriteRequest {
@@ -112,7 +116,10 @@ where
                         },
                     ).await?;
                 }
-                Err(_) => return Ok(()),
+                Err(_) => {
+                    tracing::debug!("ATT command channel closed; exiting ATT loop");
+                    return Ok(());
+                }
             },
             pdu = read_att_pdu(&mut reader) => match pdu? {
                 AttPdu::ReadResponse { value } => {
@@ -130,10 +137,11 @@ where
                             None
                         }
                     };
-                    if let Some(event) = event
-                        && events.send(event).await.is_err()
-                    {
-                        return Ok(());
+                    if let Some(event) = event {
+                        tracing::debug!(?event, "↑ AttEvent");
+                        if events.send(event).await.is_err() {
+                            return Ok(());
+                        }
                     }
                 }
                 AttPdu::Notification { handle, value } if handle == transparency::HANDLE => {

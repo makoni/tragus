@@ -44,11 +44,14 @@ pub async fn run_command_loop<W: AsyncWrite + Unpin>(
     commands: &async_channel::Receiver<DaemonCommand>,
 ) -> Result<(), TransportError> {
     while let Ok(cmd) = commands.recv().await {
+        tracing::debug!(?cmd, "↓ DaemonCommand");
         let bytes = cmd.encode();
+        tracing::trace!(?bytes, "→ AAP raw");
         writer.write_all(&bytes).await?;
         writer.flush().await?;
     }
     // Sender dropped — UI shutting down. Clean exit.
+    tracing::debug!("AAP command channel closed; exiting command loop");
     Ok(())
 }
 

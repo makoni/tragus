@@ -26,9 +26,16 @@ pub async fn read_frame<R: AsyncRead + Unpin>(
     let mut buf = vec![0u8; READ_BUFFER_SIZE];
     let n = reader.read(&mut buf).await?;
     if n == 0 {
+        tracing::debug!("AAP socket EOF (read returned 0 bytes)");
         return Err(TransportError::ConnectionClosed);
     }
+    tracing::trace!(len = n, raw = ?&buf[..n], "← AAP raw");
     let frame = Frame::parse(&buf[..n])?;
+    tracing::debug!(
+        opcode = format_args!("0x{:02x}", frame.opcode),
+        payload_len = frame.payload.len(),
+        "← AAP frame",
+    );
     Ok(frame.into())
 }
 

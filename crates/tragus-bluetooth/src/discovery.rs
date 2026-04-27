@@ -41,13 +41,19 @@ pub fn looks_like_airpods(name: Option<&str>) -> bool {
 /// Iterate over paired devices on this adapter and return those whose
 /// name passes [`looks_like_airpods`].
 pub async fn find_paired_airpods(adapter: &Adapter) -> Result<Vec<Device>, TransportError> {
+    let addresses = adapter.device_addresses().await?;
+    tracing::info!(count = addresses.len(), "scanning paired BlueZ devices");
     let mut found = Vec::new();
-    for addr in adapter.device_addresses().await? {
+    for addr in addresses {
         let device = adapter.device(addr)?;
-        if !device.is_paired().await.unwrap_or(false) {
+        let paired = device.is_paired().await.unwrap_or(false);
+        let name = device.name().await.ok().flatten();
+        tracing::debug!(?addr, ?name, paired, "device candidate");
+        if !paired {
             continue;
         }
-        if looks_like_airpods(device.name().await?.as_deref()) {
+        if looks_like_airpods(name.as_deref()) {
+            tracing::info!(?addr, ?name, "found AirPods candidate");
             found.push(device);
         }
     }
@@ -56,6 +62,11 @@ pub async fn find_paired_airpods(adapter: &Adapter) -> Result<Vec<Device>, Trans
 
 /// Open an L2CAP stream to the AAP PSM on the given AirPods.
 pub async fn open_aap_socket(addr: Address) -> Result<Stream, TransportError> {
+    tracing::info!(
+        ?addr,
+        psm = format_args!("0x{:04x}", AAP_PSM),
+        "opening AAP L2CAP socket"
+    );
     let target = SocketAddr::new(addr, AddressType::BrEdr, AAP_PSM);
     Ok(Stream::connect(target).await?)
 }
@@ -63,6 +74,11 @@ pub async fn open_aap_socket(addr: Address) -> Result<Stream, TransportError> {
 /// Open the ATT-side L2CAP stream for the GATT characteristics
 /// (transparency, hearing aid, loud-sound reduction).
 pub async fn open_att_socket(addr: Address) -> Result<Stream, TransportError> {
+    tracing::info!(
+        ?addr,
+        psm = format_args!("0x{:04x}", ATT_PSM),
+        "opening ATT L2CAP socket"
+    );
     let target = SocketAddr::new(addr, AddressType::BrEdr, ATT_PSM);
     Ok(Stream::connect(target).await?)
 }

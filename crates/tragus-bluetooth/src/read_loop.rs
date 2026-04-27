@@ -33,13 +33,21 @@ pub async fn run_read_loop<R: AsyncRead + Unpin>(
 ) -> Result<(), TransportError> {
     loop {
         let frame = read_frame(reader).await?;
-        if let Some(event) = DaemonEvent::from_frame(&frame)?
-            && events.send(event).await.is_err()
-        {
-            // Receiver dropped — UI is shutting down. Clean exit.
-            return Ok(());
+        match DaemonEvent::from_frame(&frame)? {
+            Some(event) => {
+                tracing::debug!(?event, "↑ DaemonEvent");
+                if events.send(event).await.is_err() {
+                    // Receiver dropped — UI is shutting down. Clean exit.
+                    return Ok(());
+                }
+            }
+            None => {
+                tracing::debug!(
+                    opcode = format_args!("0x{:02x}", frame.opcode),
+                    "skipped unknown AAP opcode",
+                );
+            }
         }
-        // Unknown opcode (Ok(None)): silently skip.
     }
 }
 

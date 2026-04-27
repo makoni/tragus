@@ -84,23 +84,32 @@ async fn try_one_session(
     att_commands: &Receiver<AttCommand>,
     connected: &Sender<bool>,
 ) -> Result<(), String> {
+    tracing::info!("starting one-session attempt");
+
     let (address, aap_socket) = connect_first_paired_airpods()
         .await
         .map_err(|e| format!("AAP connect: {e}"))?;
-    tracing::info!("AAP socket open to {address}");
+    tracing::info!(%address, "AAP socket open");
 
     let att_socket = open_att_socket(address)
         .await
         .map_err(|e| format!("ATT connect: {e}"))?;
-    tracing::info!("ATT socket open to {address}");
+    tracing::info!(%address, "ATT socket open");
 
     let _ = connected.send(true).await;
+    tracing::info!(%address, "session active; running daemon + ATT loops concurrently");
 
     let aap_fut = daemon::run(aap_socket, commands.clone(), events.clone());
     let att_fut = run_att_loop(att_socket, att_commands.clone(), att_events.clone());
 
     tokio::select! {
-        r = aap_fut => r.map_err(|e| format!("daemon: {e}")),
-        r = att_fut => r.map_err(|e| format!("att: {e}")),
+        r = aap_fut => {
+            tracing::info!(?r, "AAP daemon arm of the select returned");
+            r.map_err(|e| format!("daemon: {e}"))
+        }
+        r = att_fut => {
+            tracing::info!(?r, "ATT loop arm of the select returned");
+            r.map_err(|e| format!("att: {e}"))
+        }
     }
 }

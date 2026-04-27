@@ -19,10 +19,15 @@ mod window;
 const APP_ID: &str = "me.spaceinbox.tragus";
 
 fn main() -> glib::ExitCode {
+    // Default filter is `debug` for our own crates so newcomers see the
+    // full lifecycle (connection, packets, events, commands) without
+    // having to set RUST_LOG. Set `RUST_LOG=tragus=trace` to also see
+    // raw byte dumps. Set `RUST_LOG=warn` for production-quiet.
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "tragus=debug,info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "tragus=debug,tragus_bluetooth=debug,tragus_protocol=debug,info".into()
+            }),
         )
         .init();
 

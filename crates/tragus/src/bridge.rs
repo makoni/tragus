@@ -28,6 +28,7 @@ pub fn attach_event_stream(state: AirPodsState, events: async_channel::Receiver<
     let mut media = MediaState::new(EarDetectionPolicy::PauseWhenOneRemoved);
     glib::spawn_future_local(async move {
         while let Ok(event) = events.recv().await {
+            tracing::debug!(?event, "bridge: applying event to AirPodsState");
             // Update the UI state first so widgets refresh promptly,
             // even if the MPRIS calls below take a moment.
             state.apply_event(&event);
@@ -35,11 +36,13 @@ pub fn attach_event_stream(state: AirPodsState, events: async_channel::Receiver<
             if let DaemonEvent::EarDetection(notification) = &event
                 && let Some(cmd) = media.on_ear(notification.primary, notification.secondary)
             {
+                tracing::info!(?cmd, "ear detection → MPRIS");
                 match cmd {
                     MediaCommand::Pause => mpris::pause_active_players().await,
                     MediaCommand::Play => mpris::play_paused_players().await,
                 }
             }
         }
+        tracing::debug!("event channel closed; bridge task exiting");
     });
 }

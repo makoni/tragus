@@ -45,37 +45,44 @@ async fn act_on_players(target_status: &str, method: &str) -> zbus::Result<()> {
     let conn = Connection::session().await?;
     let dbus = DBusProxy::new(&conn).await?;
 
+    let mut count = 0;
     for name in dbus.list_names().await? {
         let s = name.as_str();
         if !s.starts_with(PLAYER_PREFIX) {
             continue;
         }
+        count += 1;
         let bus_name = match BusName::try_from(s) {
             Ok(n) => n,
             Err(_) => continue,
         };
-        if let Err(e) = act_on_one_player(&conn, &bus_name, target_status, method).await {
-            tracing::debug!("MPRIS {method} on {s}: {e}");
+        match act_on_one_player(&conn, &bus_name, target_status, method).await {
+            Ok(true) => tracing::debug!(player = s, method, "MPRIS action sent"),
+            Ok(false) => tracing::trace!(player = s, "skipped — wrong PlaybackStatus"),
+            Err(e) => tracing::debug!(player = s, method, "MPRIS error: {e}"),
         }
     }
+    tracing::debug!(method, players_seen = count, "MPRIS scan complete");
 
     Ok(())
 }
 
+/// Returns `Ok(true)` when the action was actually invoked,
+/// `Ok(false)` when the player wasn't in the targeted state.
 async fn act_on_one_player(
     conn: &Connection,
     bus: &BusName<'_>,
     target_status: &str,
     method: &str,
-) -> zbus::Result<()> {
+) -> zbus::Result<bool> {
     let proxy = zbus::Proxy::new(conn, bus.clone(), PLAYER_PATH, PLAYER_IFACE).await?;
     let status: Value = proxy.get_property("PlaybackStatus").await?;
     let Value::Str(s) = status else {
-        return Ok(());
+        return Ok(false);
     };
     if s.as_str() != target_status {
-        return Ok(());
+        return Ok(false);
     }
     proxy.call_method(method, &()).await?;
-    Ok(())
+    Ok(true)
 }

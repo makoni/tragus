@@ -22,16 +22,22 @@ pub async fn read_att_pdu<R: AsyncRead + Unpin>(reader: &mut R) -> Result<AttPdu
     let mut buf = vec![0u8; READ_BUFFER];
     let n = reader.read(&mut buf).await?;
     if n == 0 {
+        tracing::debug!("ATT socket EOF (read returned 0 bytes)");
         return Err(TransportError::ConnectionClosed);
     }
-    Ok(AttPdu::parse(&buf[..n])?)
+    tracing::trace!(len = n, raw = ?&buf[..n], "← ATT raw");
+    let pdu = AttPdu::parse(&buf[..n])?;
+    tracing::debug!(?pdu, "← ATT PDU");
+    Ok(pdu)
 }
 
 pub async fn write_att_pdu<W: AsyncWrite + Unpin>(
     writer: &mut W,
     pdu: &AttPdu,
 ) -> Result<(), TransportError> {
+    tracing::debug!(?pdu, "→ ATT PDU");
     let bytes = pdu.encode();
+    tracing::trace!(?bytes, "→ ATT raw");
     writer.write_all(&bytes).await?;
     writer.flush().await?;
     Ok(())

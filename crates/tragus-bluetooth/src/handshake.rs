@@ -29,21 +29,27 @@ use tragus_protocol::{
 /// Send the three-packet AAP initialisation sequence over an open L2CAP
 /// socket (or any `AsyncWrite`).
 pub async fn send_initial_sequence<W: AsyncWrite + Unpin>(writer: &mut W) -> std::io::Result<()> {
+    tracing::info!("sending AAP init sequence");
+
+    tracing::trace!(bytes = ?HANDSHAKE, "→ HANDSHAKE");
     writer.write_all(HANDSHAKE).await?;
 
     let request_notifications = Frame::encode(
         tragus_protocol::notifications::OPCODE,
         &NotificationFlags::ALL.encode_payload(),
     );
+    tracing::trace!(bytes = ?request_notifications, "→ REQUEST_NOTIFICATIONS");
     writer.write_all(&request_notifications).await?;
 
     let set_feature_flags = Frame::encode(
         tragus_protocol::feature_flags::OPCODE,
         &SetFeatureFlags::PRO2_DEFAULT.encode_payload(),
     );
+    tracing::trace!(bytes = ?set_feature_flags, "→ SET_FEATURE_FLAGS (Pro 2 default)");
     writer.write_all(&set_feature_flags).await?;
 
     writer.flush().await?;
+    tracing::info!("AAP init sequence flushed");
     Ok(())
 }
 
